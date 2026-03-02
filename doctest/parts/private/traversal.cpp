@@ -1,4 +1,5 @@
 #include "doctest/parts/private/traversal.h"
+#include "doctest/parts/private/context_state.h"
 
 DOCTEST_SUPPRESS_PRIVATE_WARNINGS_PUSH
 
@@ -38,7 +39,7 @@ void TraversalState::resetForRun() {
 bool TraversalState::advance() {
     for (size_t depth = m_decisionPath.size(); depth > 0; --depth) {
         const size_t index = depth - 1;
-        if (m_decisionPath[index] + 1 < m_discoveredDecisionPath[index].subcases.size()) {
+        if (m_decisionPath[index] + 1 < m_discoveredDecisionPath[index].branch_count) {
             ++m_decisionPath[index];
             m_decisionPath.resize(index + 1);
             return true;
@@ -60,6 +61,8 @@ bool TraversalState::tryEnterSubcase(const SubcaseSignature &signature) {
 
     if (siblingIndex == subcases.size())
         subcases.push_back(signature);
+
+    point.branch_count = subcases.size();
 
     if (siblingIndex != m_decisionPath[m_decisionDepth])
         return false;
@@ -83,6 +86,19 @@ size_t TraversalState::unwindActiveSubcases() {
         leaveSubcase();
 
     return activeSubcaseCount;
+}
+
+size_t TraversalState::acquireGeneratorIndex(size_t count) {
+    DecisionPoint &point = ensureDecisionPointAtCurrentDepth();
+    point.branch_count = count;
+
+    const size_t index = m_decisionPath[m_decisionDepth];
+    m_decisionDepth++;
+    return index < count ? index : 0;
+}
+
+size_t acquireGeneratorDecisionIndex(size_t count) {
+    return g_cs->traversal.acquireGeneratorIndex(count);
 }
 
 } // namespace detail
